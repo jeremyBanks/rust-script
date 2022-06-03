@@ -148,9 +148,7 @@ fn script_with_same_name_as_dependency() {
 #[test]
 fn script_without_main_question_mark() {
     let out = rust_script!("tests/data/question-mark").unwrap();
-    assert!(out
-        .stderr
-        .starts_with("Error: Os { code: 2, kind: NotFound, message:"));
+    assert!(out.stderr.starts_with("Error: Os { code: 2, kind: NotFound, message:"));
 }
 
 #[test]
@@ -200,24 +198,18 @@ fn test_whitespace_before_main() {
 
 #[test]
 fn test_stable_toolchain() {
-    let out = rust_script!(
-        "--toolchain-version",
-        "stable",
-        "tests/data/script-unstable-feature.rs"
-    )
-    .unwrap();
+    let out =
+        rust_script!("--toolchain-version", "stable", "tests/data/script-unstable-feature.rs")
+            .unwrap();
     assert!(out.stderr.contains("`#![feature]` may not be used"));
     assert!(!out.success());
 }
 
 #[test]
 fn test_nightly_toolchain() {
-    let out = rust_script!(
-        "--toolchain-version",
-        "nightly",
-        "tests/data/script-unstable-feature.rs"
-    )
-    .unwrap();
+    let out =
+        rust_script!("--toolchain-version", "nightly", "tests/data/script-unstable-feature.rs")
+            .unwrap();
     scan!(out.stdout_output();
         ("`#![feature]` *may* be used!") => ()
     )

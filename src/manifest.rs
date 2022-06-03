@@ -6,10 +6,12 @@ use {
         error::{MainError, MainResult},
         templates, Input,
     },
-    once_cell::sync::Lazy,
-    regex::Regex,
     std::{collections::HashMap, ffi::OsString, path::Path},
-    tracing::{error, info},
+    ::{
+        once_cell::sync::Lazy,
+        regex::Regex,
+        tracing::{error, info},
+    },
 };
 
 static RE_SHORT_MANIFEST: Lazy<Regex> =
@@ -74,12 +76,7 @@ pub fn split_input(
         }
         Input::Loop(content, count) => {
             let templ = if count { "loop-count" } else { "loop" };
-            (
-                Manifest::Toml(""),
-                content.to_string(),
-                templates::get_template(templ)?,
-                true,
-            )
+            (Manifest::Toml(""), content.to_string(), templates::get_template(templ)?, true)
         }
     };
 
@@ -880,12 +877,8 @@ fn extract_comment(s: &str) -> MainResult<String> {
             };
 
             // Detect and strip leading indentation.
-            leading_space = leading_space.or_else(|| {
-                space_re
-                    .captures(content)
-                    .and_then(|c| c.get(1))
-                    .map(|m| m.end())
-            });
+            leading_space = leading_space
+                .or_else(|| space_re.captures(content).and_then(|c| c.get(1)).map(|m| m.end()));
 
             // Make sure we have only leading spaces.
             //

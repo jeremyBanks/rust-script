@@ -25,8 +25,6 @@ use {
         error::{MainError, MainResult},
         util::Defer,
     },
-    serde::{Deserialize, Serialize},
-    sha1::{Digest, Sha1},
     std::{
         ffi::OsString,
         fs,
@@ -34,7 +32,11 @@ use {
         path::{Path, PathBuf},
         process::Command,
     },
-    tracing::{debug, error, info},
+    ::{
+        serde::{Deserialize, Serialize},
+        sha1::{Digest, Sha1},
+        tracing::{debug, error, info},
+    },
 };
 
 #[derive(Debug)]
@@ -121,11 +123,7 @@ fn parse_args() -> Args {
                     vec!["clear-cache", "list-templates"]
                 })
                 .conflicts_with_all(if cfg!(windows) {
-                    &[
-                        "list-templates",
-                        "install-file-association",
-                        "uninstall-file-association",
-                    ]
+                    &["list-templates", "install-file-association", "uninstall-file-association"]
                 } else {
                     &["list-templates"]
                 })
@@ -163,9 +161,7 @@ fn parse_args() -> Args {
                 .requires("loop"),
         )
         .arg(
-            Arg::new("debug")
-                .help("Build a debug executable, not an optimised one.")
-                .long("debug"),
+            Arg::new("debug").help("Build a debug executable, not an optimised one.").long("debug"),
         )
         .arg(
             Arg::new("dep")
@@ -208,11 +204,7 @@ fn parse_args() -> Args {
         )
         // Options that change how rust-script itself behaves, and don't alter what the script will
         // do.
-        .arg(
-            Arg::new("clear-cache")
-                .help("Clears out the script cache.")
-                .long("clear-cache"),
-        )
+        .arg(Arg::new("clear-cache").help("Clears out the script cache.").long("clear-cache"))
         .arg(
             Arg::new("force")
                 .help("Force the script to be rebuilt.")
@@ -294,8 +286,7 @@ fn parse_args() -> Args {
     where
         I: ::std::iter::Iterator<Item = &'a str>,
     {
-        v.map(|itr| itr.map(Into::into).collect())
-            .unwrap_or_default()
+        v.map(|itr| itr.map(Into::into).collect()).unwrap_or_default()
     }
 
     let script_and_args: Option<Vec<&str>> = m.values_of("script").map(|o| o.collect());
@@ -429,10 +420,7 @@ fn try_main() -> MainResult<i32> {
     // Setup environment variables early so it's available at compilation time of
     // scripts, to allow e.g. include!(concat!(env!("RUST_SCRIPT_BASE_PATH"),
     // "/script-module.rs"));
-    std::env::set_var(
-        "RUST_SCRIPT_PATH",
-        input.path().unwrap_or_else(|| Path::new("")),
-    );
+    std::env::set_var("RUST_SCRIPT_PATH", input.path().unwrap_or_else(|| Path::new("")));
     std::env::set_var("RUST_SCRIPT_SAFE_NAME", input.safe_name());
     std::env::set_var("RUST_SCRIPT_PKG_NAME", input.package_name());
     std::env::set_var("RUST_SCRIPT_BASE_PATH", input.base_path());
@@ -455,10 +443,7 @@ fn try_main() -> MainResult<i32> {
             let mut parts = dep.splitn(2, '=');
             let name = parts.next().expect("dependency is missing name");
             let version = parts.next().expect("dependency is missing version");
-            assert!(
-                parts.next().is_none(),
-                "dependency somehow has three parts?!"
-            );
+            assert!(parts.next().is_none(), "dependency somehow has three parts?!");
 
             if name.is_empty() {
                 return Err(("cannot have empty dependency package name").into());
@@ -480,15 +465,10 @@ fn try_main() -> MainResult<i32> {
     // Generate the prelude items, if we need any. Ensure consistent and *valid*
     // sorting.
     let prelude_items = {
-        let unstable_features = args
-            .unstable_features
-            .iter()
-            .map(|uf| format!("#![feature({})]", uf));
+        let unstable_features =
+            args.unstable_features.iter().map(|uf| format!("#![feature({})]", uf));
 
-        let externs = args
-            .extern_
-            .iter()
-            .map(|n| format!("#[macro_use] extern crate {};", n));
+        let externs = args.extern_.iter().map(|n| format!("#[macro_use] extern crate {};", n));
 
         let mut items: Vec<_> = unstable_features.chain(externs).collect();
         items.sort();
@@ -807,11 +787,8 @@ fn decide_action_for(
     };
     info!("id: {:?}", input_id);
 
-    let (pkg_path, using_cache) = args
-        .pkg_path
-        .as_ref()
-        .map(|p| (p.into(), false))
-        .unwrap_or_else(|| {
+    let (pkg_path, using_cache) =
+        args.pkg_path.as_ref().map(|p| (p.into(), false)).unwrap_or_else(|| {
             // This can't fail.  Seriously, we're *fucked* if we can't work this out.
             let cache_path = platform::generated_projects_cache_path().unwrap();
             (cache_path.join(&input_id), true)
@@ -830,9 +807,8 @@ fn decide_action_for(
 
     let input_meta = {
         let (path, mtime) = match *input {
-            Input::File(_, path, _, mtime) => {
-                (Some(path.to_string_lossy().into_owned()), Some(mtime))
-            }
+            Input::File(_, path, _, mtime) =>
+                (Some(path.to_string_lossy().into_owned()), Some(mtime)),
             _ => (None, None),
         };
         PackageMetadata {
@@ -848,13 +824,10 @@ fn decide_action_for(
     };
     info!("input_meta: {:?}", input_meta);
 
-    let toolchain_version = args
-        .toolchain_version
-        .clone()
-        .or_else(|| match args.build_kind {
-            BuildKind::Bench => Some("nightly".into()),
-            _ => None,
-        });
+    let toolchain_version = args.toolchain_version.clone().or_else(|| match args.build_kind {
+        BuildKind::Bench => Some("nightly".into()),
+        _ => None,
+    });
 
     let mut action = InputAction {
         cargo_output: args.cargo_output,
@@ -897,10 +870,7 @@ fn decide_action_for(
     action.old_metadata = match get_pkg_metadata(&action.pkg_path) {
         Ok(meta) => Some(meta),
         Err(err) => {
-            info!(
-                "recompiling since failed to load metadata: {}",
-                err.to_string()
-            );
+            info!("recompiling since failed to load metadata: {}", err.to_string());
             None
         }
     };
@@ -945,9 +915,7 @@ where
     let mut temp_file = tempfile::NamedTempFile::new_in(&pkg_path)?;
     serde_json::to_writer(BufWriter::new(&temp_file), meta).map_err(|err| err.to_string())?;
     temp_file.flush()?;
-    temp_file
-        .persist(&meta_path)
-        .map_err(|err| err.to_string())?;
+    temp_file.persist(&meta_path).map_err(|err| err.to_string())?;
     Ok(())
 }
 
@@ -963,11 +931,9 @@ where
     }
 
     if path.extension().is_none() {
-        for &ext in &["ers", "rs"] {
-            let path = path.with_extension(ext);
-            if let Ok(file) = fs::File::open(&path) {
-                return Some((path, file));
-            }
+        let path = path.with_extension("rs");
+        if let Ok(file) = fs::File::open(&path) {
+            return Some((path, file));
         }
     }
 
@@ -1056,9 +1022,8 @@ impl<'a> Input<'a> {
                 .parent()
                 .expect("couldn't get parent directory for file input base path")
                 .into(),
-            Input::Expr(..) | Input::Loop(..) => {
-                std::env::current_dir().expect("couldn't get current directory for input base path")
-            }
+            Input::Expr(..) | Input::Loop(..) =>
+                std::env::current_dir().expect("couldn't get current directory for input base path"),
         }
     }
 
@@ -1156,10 +1121,7 @@ where
     }
 
     debug!(".. hashes differ; new_hash: {:?}", new_hash);
-    let dir = path
-        .as_ref()
-        .parent()
-        .ok_or("The given path should be a file")?;
+    let dir = path.as_ref().parent().ok_or("The given path should be a file")?;
     let mut temp_file = tempfile::NamedTempFile::new_in(dir)?;
     temp_file.write_all(content.as_bytes())?;
     temp_file.flush()?;

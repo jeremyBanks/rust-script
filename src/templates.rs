@@ -6,9 +6,8 @@ use {
         error::{MainError, MainResult},
         platform,
     },
-    once_cell::sync::Lazy,
-    regex::Regex,
     std::{borrow::Cow, collections::HashMap, fs},
+    ::{once_cell::sync::Lazy, regex::Regex},
 };
 
 static RE_SUB: Lazy<Regex> = Lazy::new(|| Regex::new(r#"#\{([A-Za-z_][A-Za-z0-9_]*)}"#).unwrap());
@@ -35,12 +34,11 @@ pub fn expand(src: &str, subs: &HashMap<&str, &str>) -> MainResult<String> {
         let sub_name = m.get(1).unwrap().as_str();
         match subs.get(sub_name) {
             Some(s) => result.push_str(s),
-            None => {
+            None =>
                 return Err(MainError::OtherOwned(format!(
                     "substitution `{}` in template is unknown",
                     sub_name
-                )))
-            }
+                ))),
         }
     }
     result.push_str(&src[anchor..]);
@@ -53,16 +51,10 @@ pub fn get_template(name: &str) -> MainResult<Cow<'static, str>> {
 
     let base = platform::templates_dir()?;
 
-    let file = fs::File::open(base.join(format!("{}.rs", name)))
-        .map_err(MainError::from)
-        .map_err(|e| {
+    let file =
+        fs::File::open(base.join(format!("{}.rs", name))).map_err(MainError::from).map_err(|e| {
             MainError::Tag(
-                format!(
-                    "template file `{}.rs` does not exist in {}",
-                    name,
-                    base.display()
-                )
-                .into(),
+                format!("template file `{}.rs` does not exist in {}", name, base.display()).into(),
                 Box::new(e),
             )
         });

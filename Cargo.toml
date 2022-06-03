@@ -4,6 +4,7 @@ edition = "2021"
 license = "MIT OR Apache-2.0"
 name = "rustrun"
 publish = false
+rust-version = "1.59.0"
 version = "0.0.0-2022-06-03"
 
 [dependencies]

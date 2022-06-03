@@ -14,19 +14,13 @@ pub use self::inner::force_cargo_color;
 // Last-modified time of a file, in milliseconds since the UNIX epoch.
 pub fn file_last_modified(file: &fs::File) -> u128 {
     file.metadata()
-        .and_then(|md| {
-            md.modified()
-                .map(|t| t.duration_since(UNIX_EPOCH).unwrap().as_millis())
-        })
+        .and_then(|md| md.modified().map(|t| t.duration_since(UNIX_EPOCH).unwrap().as_millis()))
         .unwrap_or(0)
 }
 
 // Current system time, in milliseconds since the UNIX epoch.
 pub fn current_time() -> u128 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_millis()
+    SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis()
 }
 
 #[cfg(not(test))]

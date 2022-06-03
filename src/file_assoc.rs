@@ -1,8 +1,8 @@
 //! This module deals with setting up file associations on Windows
 use {
     crate::error::MainResult,
+    ::winreg::{enums as wre, RegKey},
     std::{env, io},
-    winreg::{enums as wre, RegKey},
 };
 
 pub fn install_file_association() -> MainResult<()> {
@@ -59,12 +59,9 @@ pub fn uninstall_file_association() -> MainResult<()> {
         let hlcr = RegKey::predef(wre::HKEY_CLASSES_ROOT);
         hlcr.delete_subkey(r#"RustScript.Rs\shell\open\command"#)
             .ignore_missing_and(&mut notify)?;
-        hlcr.delete_subkey(r#"RustScript.Rs\shell\open"#)
-            .ignore_missing_and(&mut notify)?;
-        hlcr.delete_subkey(r#"RustScript.Rs\shell"#)
-            .ignore_missing_and(&mut notify)?;
-        hlcr.delete_subkey(r#"RustScript.Rs"#)
-            .ignore_missing_and(&mut notify)?;
+        hlcr.delete_subkey(r#"RustScript.Rs\shell\open"#).ignore_missing_and(&mut notify)?;
+        hlcr.delete_subkey(r#"RustScript.Rs\shell"#).ignore_missing_and(&mut notify)?;
+        hlcr.delete_subkey(r#"RustScript.Rs"#).ignore_missing_and(&mut notify)?;
     }
 
     if ignored_missing {
@@ -88,14 +85,13 @@ impl IgnoreMissing for io::Result<()> {
     {
         match self {
             Ok(()) => Ok(()),
-            Err(e) => {
+            Err(e) =>
                 if e.kind() == io::ErrorKind::NotFound {
                     f();
                     Ok(())
                 } else {
                     Err(e)
-                }
-            }
+                },
         }
     }
 }
