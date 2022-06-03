@@ -1,5 +1,6 @@
 //! This module is concerned with how `rust-script` extracts the manifest from a
 //! script file.
+
 use {
     crate::{
         consts,
@@ -23,11 +24,13 @@ static RE_COMMENT: Lazy<Regex> = Lazy::new(|| Regex::new(r"^\s*//(!|/)").unwrap(
 static RE_CRATE_COMMENT: Lazy<Regex> = Lazy::new(|| {
     Regex::new(
         r"(?x)
-            # We need to find the first `/*!` or `//!` that *isn't* preceeded by something that would make it apply to anything other than the crate itself.  Because we can't do this accurately, we'll just require that the doc comment is the *first* thing in the file (after the optional shebang, which should already have been stripped).
-            ^\s*
+            ^
+            (?:\#![^\n]+\n)?
+            \s*
             (/\*!|//(!|/))
-        "
-    ).unwrap()
+        ",
+    )
+    .unwrap()
 });
 
 /// Splits input into a complete Cargo manifest and unadulterated Rust source.
@@ -56,10 +59,33 @@ pub fn split_input(
             let file: syn::File =
                 syn::parse_file(content).map_err(|err| format!("Failed to parse file: {err})"))?;
 
-            println!("{}", &format!("{:#?}", file)[..100]);
+            println!(
+                "FILE ATTRS {:#?}",
+                file.attrs
+                    .iter()
+                    .map(|attr| format!("{:?} {}", attr.path.segments, attr.tokens.to_string()))
+                    .collect::<Vec<_>>()
+            );
+
+            // #[path]?
+
+            // collect all root identifiers anywhere in the file
+            {
+                impl<'ast> syn::visit::Visit<'ast> for Visitor {
+                    fn visit_path(&mut self, i: &'ast syn::Path) {
+                        println!("VISITING PATH: {:?}", i);
+                        syn::visit::visit_path(self, i);
+                    }
+                }
+                struct Visitor;
+                &mut Visitor as &mut dyn syn::visit::Visit
+            }
+            .visit_file(&file);
 
             let (manifest, source) =
                 find_embedded_manifest(content).unwrap_or((Manifest::Toml(""), content));
+
+            println!("MANIFEST?! {:#?}", manifest);
 
             let source = if source.lines().any(contains_main_method) {
                 source.to_string()

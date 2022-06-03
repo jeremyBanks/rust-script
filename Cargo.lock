@@ -384,6 +384,7 @@ dependencies = [
  "once_cell",
  "proc-macro2",
  "pulldown-cmark",
+ "quote",
  "regex",
  "scan-rules",
  "serde",
