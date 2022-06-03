@@ -1,8 +1,7 @@
 #![forbid(unsafe_code)]
 
-/**
-If this is set to `false`, then code that automatically deletes stuff *won't*.
-*/
+/// If this is set to `false`, then code that automatically deletes stuff
+/// *won't*.
 const ALLOW_AUTO_REMOVE: bool = true;
 
 mod consts;
@@ -21,17 +20,22 @@ mod file_assoc {}
 #[cfg(unix)]
 use std::os::unix::process::CommandExt;
 
-use log::{debug, error, info};
-use serde::{Deserialize, Serialize};
-use std::ffi::OsString;
-use std::fs;
-use std::io::{BufWriter, Read, Write};
-use std::path::{Path, PathBuf};
-use std::process::Command;
-
-use crate::error::{MainError, MainResult};
-use crate::util::Defer;
-use sha1::{Digest, Sha1};
+use {
+    crate::{
+        error::{MainError, MainResult},
+        util::Defer,
+    },
+    serde::{Deserialize, Serialize},
+    sha1::{Digest, Sha1},
+    std::{
+        ffi::OsString,
+        fs,
+        io::{BufWriter, Read, Write},
+        path::{Path, PathBuf},
+        process::Command,
+    },
+    tracing::{debug, error, info},
+};
 
 #[derive(Debug)]
 struct Args {
@@ -95,7 +99,6 @@ impl BuildKind {
 
 fn parse_args() -> Args {
     use clap::{Arg, ArgGroup, Command};
-    use std::iter::FromIterator;
     let version = option_env!("CARGO_PKG_VERSION").unwrap_or("unknown");
     let about = r#"Compiles and runs a Rust script."#;
 
@@ -103,153 +106,181 @@ fn parse_args() -> Args {
         .version(version)
         .about(about)
         .trailing_var_arg(true)
-            .arg(Arg::new("script")
+        .arg(
+            Arg::new("script")
                 .index(1)
                 .help("Script file or expression to execute.")
                 .required_unless_present_any(if cfg!(windows) {
-                    vec!["clear-cache", "list-templates", "install-file-association", "uninstall-file-association"]
+                    vec![
+                        "clear-cache",
+                        "list-templates",
+                        "install-file-association",
+                        "uninstall-file-association",
+                    ]
                 } else {
                     vec!["clear-cache", "list-templates"]
                 })
                 .conflicts_with_all(if cfg!(windows) {
-                    &["list-templates", "install-file-association", "uninstall-file-association"]
+                    &[
+                        "list-templates",
+                        "install-file-association",
+                        "uninstall-file-association",
+                    ]
                 } else {
                     &["list-templates"]
                 })
-                .multiple_values(true)
-            )
-            .arg(Arg::new("expr")
+                .multiple_values(true),
+        )
+        .arg(
+            Arg::new("expr")
                 .help("Execute <script> as a literal expression and display the result.")
                 .long("expr")
                 .short('e')
                 .takes_value(false)
-                .requires("script")
-            )
-            .arg(Arg::new("loop")
+                .requires("script"),
+        )
+        .arg(
+            Arg::new("loop")
                 .help("Execute <script> as a literal closure once for each line from stdin.")
                 .long("loop")
                 .short('l')
                 .takes_value(false)
-                .requires("script")
-            )
-            .group(ArgGroup::new("expr_or_loop")
-                .args(&["expr", "loop"])
-            )
-            /*
-            Options that impact the script being executed.
-            */
-            .arg(Arg::new("cargo-output")
+                .requires("script"),
+        )
+        .group(ArgGroup::new("expr_or_loop").args(&["expr", "loop"]))
+        // Options that impact the script being executed.
+        .arg(
+            Arg::new("cargo-output")
                 .help("Show output from cargo when building.")
                 .short('o')
                 .long("cargo-output")
-                .requires("script")
-            )
-            .arg(Arg::new("count")
+                .requires("script"),
+        )
+        .arg(
+            Arg::new("count")
                 .help("Invoke the loop closure with two arguments: line, and line number.")
                 .long("count")
-                .requires("loop")
-            )
-            .arg(Arg::new("debug")
+                .requires("loop"),
+        )
+        .arg(
+            Arg::new("debug")
                 .help("Build a debug executable, not an optimised one.")
-                .long("debug")
-            )
-            .arg(Arg::new("dep")
-                .help("Add an additional Cargo dependency. Each SPEC can be either just the package name (which will assume the latest version) or a full `name=version` spec.")
+                .long("debug"),
+        )
+        .arg(
+            Arg::new("dep")
+                .help(
+                    "Add an additional Cargo dependency. Each SPEC can be either just the package \
+                     name (which will assume the latest version) or a full `name=version` spec.",
+                )
                 .long("dep")
                 .short('d')
                 .takes_value(true)
                 .multiple_occurrences(true)
-                .number_of_values(1)
-            )
-            .arg(Arg::new("extern")
-                .help("Adds an `#[macro_use] extern crate name;` item for expressions and loop scripts.")
+                .number_of_values(1),
+        )
+        .arg(
+            Arg::new("extern")
+                .help(
+                    "Adds an `#[macro_use] extern crate name;` item for expressions and loop \
+                     scripts.",
+                )
                 .long("extern")
                 .short('x')
                 .takes_value(true)
                 .multiple_occurrences(true)
-                .requires("expr_or_loop")
-            )
-            .arg(Arg::new("features")
-                 .help("Cargo features to pass when building and running.")
-                 .long("features")
-                 .takes_value(true)
-            )
-            .arg(Arg::new("unstable_features")
+                .requires("expr_or_loop"),
+        )
+        .arg(
+            Arg::new("features")
+                .help("Cargo features to pass when building and running.")
+                .long("features")
+                .takes_value(true),
+        )
+        .arg(
+            Arg::new("unstable_features")
                 .help("Add a #![feature] declaration to the crate.")
                 .long("unstable-feature")
                 .short('u')
                 .takes_value(true)
                 .multiple_occurrences(true)
-                .requires("expr_or_loop")
-            )
-
-            /*
-            Options that change how rust-script itself behaves, and don't alter what the script will do.
-            */
-            .arg(Arg::new("clear-cache")
+                .requires("expr_or_loop"),
+        )
+        // Options that change how rust-script itself behaves, and don't alter what the script will
+        // do.
+        .arg(
+            Arg::new("clear-cache")
                 .help("Clears out the script cache.")
-                .long("clear-cache")
-            )
-            .arg(Arg::new("force")
+                .long("clear-cache"),
+        )
+        .arg(
+            Arg::new("force")
                 .help("Force the script to be rebuilt.")
                 .long("force")
-                .requires("script")
-            )
-            .arg(Arg::new("gen_pkg_only")
+                .requires("script"),
+        )
+        .arg(
+            Arg::new("gen_pkg_only")
                 .help("Generate the Cargo package, but don't compile or run it.")
                 .long("gen-pkg-only")
                 .requires("script")
-                .conflicts_with_all(&["debug", "force", "test", "bench"])
-            )
-            .arg(Arg::new("pkg_path")
+                .conflicts_with_all(&["debug", "force", "test", "bench"]),
+        )
+        .arg(
+            Arg::new("pkg_path")
                 .help("Specify where to place the generated Cargo package.")
                 .long("pkg-path")
                 .takes_value(true)
                 .requires("script")
-                .conflicts_with_all(&["clear-cache", "force"])
-            )
-            .arg(Arg::new("test")
+                .conflicts_with_all(&["clear-cache", "force"]),
+        )
+        .arg(
+            Arg::new("test")
                 .help("Compile and run tests.")
                 .long("test")
-                .conflicts_with_all(&["bench", "debug", "force"])
-            )
-            .arg(Arg::new("bench")
+                .conflicts_with_all(&["bench", "debug", "force"]),
+        )
+        .arg(
+            Arg::new("bench")
                 .help("Compile and run benchmarks. Requires a nightly toolchain.")
                 .long("bench")
-                .conflicts_with_all(&["test", "debug", "force"])
-            )
-            .arg(Arg::new("template")
+                .conflicts_with_all(&["test", "debug", "force"]),
+        )
+        .arg(
+            Arg::new("template")
                 .help("Specify a template to use for expression scripts.")
                 .long("template")
                 .short('t')
                 .takes_value(true)
-                .requires("expr")
-            )
-            .arg(Arg::new("toolchain-version")
+                .requires("expr"),
+        )
+        .arg(
+            Arg::new("toolchain-version")
                 .help("Build the script using the given toolchain version.")
                 .long("toolchain-version")
                 // "channel"
                 .short('c')
                 .takes_value(true)
                 // FIXME: remove if benchmarking is stabilized
-                .conflicts_with("bench")
-            )
-        .arg(Arg::new("list-templates")
-            .help("List the available templates.")
-            .long("list-templates")
-            .takes_value(false)
+                .conflicts_with("bench"),
+        )
+        .arg(
+            Arg::new("list-templates")
+                .help("List the available templates.")
+                .long("list-templates")
+                .takes_value(false),
         );
 
     #[cfg(windows)]
     let app = app
         .arg(
             Arg::new("install-file-association")
-                .help("Install a file association so that rust-script executes .ers files.")
+                .help("Install a file association so that rust-script executes .rs files.")
                 .long("install-file-association"),
         )
         .arg(
             Arg::new("uninstall-file-association")
-                .help("Uninstall the file association that makes rust-script execute .ers files.")
+                .help("Uninstall the file association that makes rust-script execute .rs files.")
                 .long("uninstall-file-association"),
         )
         .group(
@@ -354,8 +385,9 @@ fn try_main() -> MainResult<i32> {
     }
 
     // Take the arguments and work out what our input is going to be.
-    // Primarily, this gives us the content, a user-friendly name, and a cache-friendly ID.
-    // These three are just storage for the borrows we'll actually use.
+    // Primarily, this gives us the content, a user-friendly name, and a
+    // cache-friendly ID. These three are just storage for the borrows we'll
+    // actually use.
     let script_name: String;
     let script_path: PathBuf;
     let content: String;
@@ -394,8 +426,9 @@ fn try_main() -> MainResult<i32> {
     };
     info!("input: {:?}", input);
 
-    // Setup environment variables early so it's available at compilation time of scripts,
-    // to allow e.g. include!(concat!(env!("RUST_SCRIPT_BASE_PATH"), "/script-module.rs"));
+    // Setup environment variables early so it's available at compilation time of
+    // scripts, to allow e.g. include!(concat!(env!("RUST_SCRIPT_BASE_PATH"),
+    // "/script-module.rs"));
     std::env::set_var(
         "RUST_SCRIPT_PATH",
         input.path().unwrap_or_else(|| Path::new("")),
@@ -444,7 +477,8 @@ fn try_main() -> MainResult<i32> {
         deps
     };
 
-    // Generate the prelude items, if we need any. Ensure consistent and *valid* sorting.
+    // Generate the prelude items, if we need any. Ensure consistent and *valid*
+    // sorting.
     let prelude_items = {
         let unstable_features = args
             .unstable_features
@@ -506,11 +540,10 @@ fn try_main() -> MainResult<i32> {
     }
 }
 
-/**
-Clean up the cache folder.
-
-Looks for all folders whose metadata says they were created at least `max_age` in the past and kills them dead.
-*/
+/// Clean up the cache folder.
+///
+/// Looks for all folders whose metadata says they were created at least
+/// `max_age` in the past and kills them dead.
 fn clean_cache(max_age: u128) -> MainResult<()> {
     info!("cleaning cache with max_age: {:?}", max_age);
 
@@ -579,11 +612,11 @@ fn clean_cache(max_age: u128) -> MainResult<()> {
     Ok(())
 }
 
-/**
-Generate and compile a package from the input.
-
-Why take `PackageMetadata`?  To ensure that any information we need to depend on for compilation *first* passes through `decide_action_for` *and* is less likely to not be serialised with the rest of the metadata.
-*/
+/// Generate and compile a package from the input.
+///
+/// Why take `PackageMetadata`?  To ensure that any information we need to
+/// depend on for compilation *first* passes through `decide_action_for` *and*
+/// is less likely to not be serialized with the rest of the metadata.
 fn gen_pkg_and_compile(input: &Input, action: &InputAction) -> MainResult<()> {
     let pkg_path = &action.pkg_path;
     let meta = &action.metadata;
@@ -595,7 +628,8 @@ fn gen_pkg_and_compile(input: &Input, action: &InputAction) -> MainResult<()> {
     info!("creating pkg dir...");
     fs::create_dir_all(pkg_path)?;
     let cleanup_dir: Defer<_, MainError> = Defer::new(|| {
-        // DO NOT try deleting ANYTHING if we're not cleaning up inside our own cache.  We *DO NOT* want to risk killing user files.
+        // DO NOT try deleting ANYTHING if we're not cleaning up inside our own cache.
+        // We *DO NOT* want to risk killing user files.
         if action.using_cache {
             info!("cleaning up cache directory {:?}", pkg_path);
             if ALLOW_AUTO_REMOVE {
@@ -621,10 +655,11 @@ fn gen_pkg_and_compile(input: &Input, action: &InputAction) -> MainResult<()> {
 
     {
         let script_path = pkg_path.join(format!("{}.rs", input.safe_name()));
-        // There are times (particularly involving shared target dirs) where we can't rely
-        // on Cargo to correctly detect invalidated builds. As such, if we've been told to
-        // *force* a recompile, we'll deliberately force the script to be overwritten,
-        // which will invalidate the timestamp, which will lead to a recompile.
+        // There are times (particularly involving shared target dirs) where we can't
+        // rely on Cargo to correctly detect invalidated builds. As such, if
+        // we've been told to *force* a recompile, we'll deliberately force the
+        // script to be overwritten, which will invalidate the timestamp, which
+        // will lead to a recompile.
         let script_hash = if action.force_compile {
             debug!("told to force compile, ignoring script hash");
             None
@@ -641,7 +676,8 @@ fn gen_pkg_and_compile(input: &Input, action: &InputAction) -> MainResult<()> {
 
     let meta = meta;
 
-    // Write out metadata *now*.  Remember that we check the timestamp in the metadata, *not* on the executable.
+    // Write out metadata *now*.  Remember that we check the timestamp in the
+    // metadata, *not* on the executable.
     if action.emit_metadata {
         info!("emitting metadata...");
         write_pkg_metadata(pkg_path, &meta)?;
@@ -653,19 +689,15 @@ fn gen_pkg_and_compile(input: &Input, action: &InputAction) -> MainResult<()> {
     Ok(())
 }
 
-/**
-This represents what to do with the input provided by the user.
-*/
+/// This represents what to do with the input provided by the user.
 #[derive(Debug)]
 struct InputAction {
     /// Always show cargo output?
     cargo_output: bool,
 
-    /**
-    Force Cargo to do a recompile, even if it thinks it doesn't have to.
-
-    `compile` must be `true` for this to have any effect.
-    */
+    /// Force Cargo to do a recompile, even if it thinks it doesn't have to.
+    ///
+    /// `compile` must be `true` for this to have any effect.
     force_compile: bool,
 
     /// Emit a metadata file?
@@ -677,24 +709,23 @@ struct InputAction {
     /// Directory where the package should live.
     pkg_path: PathBuf,
 
-    /**
-    Is the package directory in the cache?
-
-    Currently, this can be inferred from `emit_metadata`, but there's no *intrinsic* reason they should be tied together.
-    */
+    /// Is the package directory in the cache?
+    ///
+    /// Currently, this can be inferred from `emit_metadata`, but there's no
+    /// *intrinsic* reason they should be tied together.
     using_cache: bool,
 
-    /**
-    Which toolchain the script should be built with.
-
-    `None` indicates that the script should be built with a stable toolchain.
-    */
+    /// Which toolchain the script should be built with.
+    ///
+    /// `None` indicates that the script should be built with a stable
+    /// toolchain.
     toolchain_version: Option<String>,
 
     /// The package metadata structure for the current invocation.
     metadata: PackageMetadata,
 
-    /// The package metadata structure for the *previous* invocation, if it exists.
+    /// The package metadata structure for the *previous* invocation, if it
+    /// exists.
     old_metadata: Option<PackageMetadata>,
 
     /// The package manifest contents.
@@ -729,12 +760,11 @@ impl InputAction {
     }
 }
 
-/**
-The metadata here serves two purposes:
-
-1. It records everything necessary for compilation and execution of a package.
-2. It records everything that must be exactly the same in order for a cached executable to still be valid, in addition to the content hash.
-*/
+/// The metadata here serves two purposes:
+///
+/// 1. It records everything necessary for compilation and execution of a
+/// package. 2. It records everything that must be exactly the same in order for
+/// a cached executable to still be valid, in addition to the content hash.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 struct PackageMetadata {
     /// Path to the script file.
@@ -762,9 +792,8 @@ struct PackageMetadata {
     script_hash: String,
 }
 
-/**
-For the given input, this constructs the package metadata and checks the cache to see what should be done.
-*/
+/// For the given input, this constructs the package metadata and checks the
+/// cache to see what should be done.
 fn decide_action_for(
     input: &Input,
     deps: Vec<(String, String)>,
@@ -879,9 +908,7 @@ fn decide_action_for(
     Ok(action)
 }
 
-/**
-Load the package metadata, given the path to the package's cache folder.
-*/
+/// Load the package metadata, given the path to the package's cache folder.
 fn get_pkg_metadata<P>(pkg_path: P) -> MainResult<PackageMetadata>
 where
     P: AsRef<Path>,
@@ -900,9 +927,7 @@ where
     Ok(meta)
 }
 
-/**
-Work out the path to a package's metadata file.
-*/
+/// Work out the path to a package's metadata file.
 fn get_pkg_metadata_path<P>(pkg_path: P) -> PathBuf
 where
     P: AsRef<Path>,
@@ -910,9 +935,7 @@ where
     pkg_path.as_ref().join("metadata.json")
 }
 
-/**
-Save the package metadata, given the path to the package's cache folder.
-*/
+/// Save the package metadata, given the path to the package's cache folder.
 fn write_pkg_metadata<P>(pkg_path: P, meta: &PackageMetadata) -> MainResult<()>
 where
     P: AsRef<Path>,
@@ -951,37 +974,29 @@ where
     None
 }
 
-/**
-Represents an input source for a script.
-*/
+/// Represents an input source for a script.
 #[derive(Clone, Debug)]
 pub enum Input<'a> {
-    /**
-    The input is a script file.
-
-    The tuple members are: the name, absolute path, script contents, last modified time.
-    */
+    /// The input is a script file.
+    ///
+    /// The tuple members are: the name, absolute path, script contents, last
+    /// modified time.
     File(&'a str, &'a Path, &'a str, u128),
 
-    /**
-    The input is an expression.
-
-    The tuple member is: the script contents, and the template (if any).
-    */
+    /// The input is an expression.
+    ///
+    /// The tuple member is: the script contents, and the template (if any).
     Expr(&'a str, Option<&'a str>),
 
-    /**
-    The input is a loop expression.
-
-    The tuple member is: the script contents, whether the `--count` flag was given.
-    */
+    /// The input is a loop expression.
+    ///
+    /// The tuple member is: the script contents, whether the `--count` flag was
+    /// given.
     Loop(&'a str, bool),
 }
 
 impl<'a> Input<'a> {
-    /**
-    Return the path to the script, if it has one.
-    */
+    /// Return the path to the script, if it has one.
     pub const fn path(&self) -> Option<&Path> {
         use crate::Input::*;
 
@@ -992,11 +1007,10 @@ impl<'a> Input<'a> {
         }
     }
 
-    /**
-    Return the "safe name" for the input.  This should be filename-safe.
-
-    Currently, nothing is done to ensure this, other than hoping *really hard* that we don't get fed some excessively bizzare input filename.
-    */
+    /// Return the "safe name" for the input.  This should be filename-safe.
+    ///
+    /// Currently, nothing is done to ensure this, other than hoping *really
+    /// hard* that we don't get fed some excessively blizzard input filename.
     pub const fn safe_name(&self) -> &str {
         use crate::Input::*;
 
@@ -1007,9 +1021,8 @@ impl<'a> Input<'a> {
         }
     }
 
-    /**
-    Return the package name for the input.  This should be a valid Rust identifier.
-    */
+    /// Return the package name for the input.  This should be a valid Rust
+    /// identifier.
     pub fn package_name(&self) -> String {
         let name = self.safe_name();
         let mut r = String::with_capacity(name.len());
@@ -1036,9 +1049,7 @@ impl<'a> Input<'a> {
         r
     }
 
-    /**
-    Base directory for resolving relative paths.
-    */
+    /// Base directory for resolving relative paths.
     pub fn base_path(&self) -> PathBuf {
         match *self {
             Input::File(_, path, _, _) => path
@@ -1103,7 +1114,8 @@ impl<'a> Input<'a> {
             Loop(content, count) => {
                 let mut hasher = hash_deps();
 
-                // Make sure to include the [non-]presence of the `--count` flag in the flag, since it changes the actual generated script output.
+                // Make sure to include the [non-]presence of the `--count` flag in the flag,
+                // since it changes the actual generated script output.
                 hasher.update("count:");
                 hasher.update(if count { "true;" } else { "false;" });
 
@@ -1119,9 +1131,7 @@ impl<'a> Input<'a> {
     }
 }
 
-/**
-Shorthand for hashing a string.
-*/
+/// Shorthand for hashing a string.
 fn hash_str(s: &str) -> String {
     let mut hasher = Sha1::new();
     hasher.update(s);
@@ -1133,9 +1143,7 @@ enum FileOverwrite {
     Changed { new_hash: String },
 }
 
-/**
-Overwrite a file if and only if the contents have changed.
-*/
+/// Overwrite a file if and only if the contents have changed.
 fn overwrite_file<P>(path: P, content: &str, hash: Option<&str>) -> MainResult<FileOverwrite>
 where
     P: AsRef<Path>,
@@ -1159,9 +1167,7 @@ where
     Ok(FileOverwrite::Changed { new_hash })
 }
 
-/**
-Constructs a Cargo command that runs on the script package.
-*/
+/// Constructs a Cargo command that runs on the script package.
 fn cargo(
     build_kind: BuildKind,
     manifest: &str,

@@ -1,15 +1,15 @@
-/*!
-This module is for platform-specific stuff.
-*/
+//! This module is for platform-specific stuff.
+
+use {
+    crate::{consts, error::MainError},
+    std::{
+        fs,
+        path::PathBuf,
+        time::{SystemTime, UNIX_EPOCH},
+    },
+};
 
 pub use self::inner::force_cargo_color;
-
-use crate::consts;
-use crate::error::MainError;
-use std::fs;
-
-use std::path::PathBuf;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 // Last-modified time of a file, in milliseconds since the UNIX epoch.
 pub fn file_last_modified(file: &fs::File) -> u128 {
@@ -38,10 +38,9 @@ pub fn cache_dir() -> Result<PathBuf, MainError> {
 
 #[cfg(test)]
 pub fn cache_dir() -> Result<PathBuf, MainError> {
-    use lazy_static::lazy_static;
-    lazy_static! {
-        static ref TEMP_DIR: tempfile::TempDir = tempfile::TempDir::new().unwrap();
-    }
+    static TEMP_DIR: once_cell::sync::Lazy<tempfile::TempDir> = once_cell::sync::Lazy::new(|| {
+        tempfile::TempDir::new().expect("Cannot create temporary directory")
+    });
     Ok(TEMP_DIR.path().to_path_buf())
 }
 
@@ -69,11 +68,11 @@ pub fn templates_dir() -> Result<PathBuf, MainError> {
 mod inner {
     pub use super::*;
 
-    /**
-    Returns `true` if `rust-script` should force Cargo to use coloured output.
-
-    This depends on whether `rust-script`'s STDERR is connected to a TTY or not.
-    */
+    /// Returns `true` if `rust-script` should force Cargo to use coloured
+    /// output.
+    ///
+    /// This depends on whether `rust-script`'s STDERR is connected to a TTY or
+    /// not.
     pub fn force_cargo_color() -> bool {
         atty::is(atty::Stream::Stderr)
     }
@@ -83,11 +82,11 @@ mod inner {
 pub mod inner {
     pub use super::*;
 
-    /**
-    Returns `true` if `rust-script` should force Cargo to use coloured output.
-
-    Always returns `false` on Windows because colour is communicated over a side-channel.
-    */
+    /// Returns `true` if `rust-script` should force Cargo to use coloured
+    /// output.
+    ///
+    /// Always returns `false` on Windows because colour is communicated over a
+    /// side-channel.
     pub fn force_cargo_color() -> bool {
         false
     }

@@ -1,18 +1,17 @@
-/*!
-This module contains code related to template support.
-*/
-use crate::consts;
-use crate::error::{MainError, MainResult};
-use crate::platform;
-use lazy_static::lazy_static;
-use regex::Regex;
-use std::borrow::Cow;
-use std::collections::HashMap;
-use std::fs;
+//! This module contains code related to template support.
 
-lazy_static! {
-    static ref RE_SUB: Regex = Regex::new(r#"#\{([A-Za-z_][A-Za-z0-9_]*)}"#).unwrap();
-}
+use {
+    crate::{
+        consts,
+        error::{MainError, MainResult},
+        platform,
+    },
+    once_cell::sync::Lazy,
+    regex::Regex,
+    std::{borrow::Cow, collections::HashMap, fs},
+};
+
+static RE_SUB: Lazy<Regex> = Lazy::new(|| Regex::new(r#"#\{([A-Za-z_][A-Za-z0-9_]*)}"#).unwrap());
 
 pub fn expand(src: &str, subs: &HashMap<&str, &str>) -> MainResult<String> {
     // The estimate of final size is the sum of the size of all the input.
@@ -48,9 +47,7 @@ pub fn expand(src: &str, subs: &HashMap<&str, &str>) -> MainResult<String> {
     Ok(result)
 }
 
-/**
-Attempts to locate and load the contents of the specified template.
-*/
+/// Attempts to locate and load the contents of the specified template.
 pub fn get_template(name: &str) -> MainResult<Cow<'static, str>> {
     use std::io::Read;
 
@@ -70,7 +67,8 @@ pub fn get_template(name: &str) -> MainResult<Cow<'static, str>> {
             )
         });
 
-    // If the template is one of the built-in ones, do fallback if it wasn't found on disk.
+    // If the template is one of the built-in ones, do fallback if it wasn't found
+    // on disk.
     if file.is_err() {
         if let Some(text) = builtin_template(name) {
             return Ok(text.into());

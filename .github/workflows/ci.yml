@@ -8,7 +8,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        rust: ["1.54.0", "1.60.0"]
+        rust: ["1.59.0", "1.61.0"]
     runs-on: ${{ matrix.os }}
     steps:
     - name: Checkout source
@@ -104,11 +104,11 @@ jobs:
     - name: Install file association
       run: ./target/debug/rust-script.exe --install-file-association
     - name: Run example script
-      run: cmd.exe /C .\examples\hello.ers
+      run: cmd.exe /C .\example-scripts\hello.rs
     - name: Uninstall file association
       run: ./target/debug/rust-script.exe --uninstall-file-association
     - name: Run example script
-      run: cmd.exe /C .\examples\hello.ers
+      run: cmd.exe /C .\example-scripts\hello.rs
       continue-on-error: true
 
   security-audit:

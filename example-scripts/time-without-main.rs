@@ -7,7 +7,6 @@
 /// [dependencies]
 /// time = "0.1.25"
 /// ```
-
 use time::now;
 
 println!("{}", now().rfc822z());

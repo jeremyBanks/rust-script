@@ -1,4 +1,7 @@
-use std::sync::Mutex;
+use {
+    once_cell::{self, sync::Lazy},
+    std::sync::Mutex,
+};
 
 macro_rules! rust_script {
     (
@@ -62,10 +65,7 @@ macro_rules! with_output_marker {
     };
 }
 
-lazy_static! {
-    #[doc(hidden)]
-    pub static ref CARGO_MUTEX: Mutex<()> = Mutex::new(());
-}
+pub static CARGO_MUTEX: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
 
 pub const OUTPUT_MARKER: &str = "--output--";
 pub const OUTPUT_MARKER_CODE: &str = "println!(\"--output--\");";

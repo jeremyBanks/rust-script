@@ -1,5 +1,5 @@
 #!/usr/bin/env rust-script
 
 fn main() {
-  println!("hello, rust");
+    println!("hello, rust");
 }

@@ -1,10 +1,9 @@
-/*!
-This module deals with setting up file associations on Windows
-*/
-use crate::error::MainResult;
-use std::env;
-use std::io;
-use winreg::{enums as wre, RegKey};
+//! This module deals with setting up file associations on Windows
+use {
+    crate::error::MainResult,
+    std::{env, io},
+    winreg::{enums as wre, RegKey},
+};
 
 pub fn install_file_association() -> MainResult<()> {
     let rust_script_path = env::current_exe()?.canonicalize()?;
@@ -12,7 +11,8 @@ pub fn install_file_association() -> MainResult<()> {
         return Err(format!("{:?} not found", rust_script_path).into());
     }
 
-    // We have to remove the `\\?\` prefix because, if we don't, the shell freaks out.
+    // We have to remove the `\\?\` prefix because, if we don't, the shell freaks
+    // out.
     let rust_script_path = rust_script_path.to_string_lossy();
     let rust_script_path = if let Some(stripped) = rust_script_path.strip_prefix(r#"\\?\"#) {
         stripped
@@ -22,13 +22,13 @@ pub fn install_file_association() -> MainResult<()> {
 
     let res = (|| -> io::Result<()> {
         let hlcr = RegKey::predef(wre::HKEY_CLASSES_ROOT);
-        let (dot_ers, _) = hlcr.create_subkey(".ers")?;
-        dot_ers.set_value("", &"RustScript.Ers")?;
+        let (dot_rs, _) = hlcr.create_subkey(".rs")?;
+        dot_rs.set_value("", &"RustScript.Rs")?;
 
-        let (cs_ers, _) = hlcr.create_subkey("RustScript.Ers")?;
-        cs_ers.set_value("", &"Rust Script")?;
+        let (cs_rs, _) = hlcr.create_subkey("RustScript.Rs")?;
+        cs_rs.set_value("", &"Rust Script")?;
 
-        let (sh_o_c, _) = cs_ers.create_subkey(r#"shell\open\command"#)?;
+        let (sh_o_c, _) = cs_rs.create_subkey(r#"shell\open\command"#)?;
         sh_o_c.set_value("", &format!(r#""{}" "%1" %*"#, rust_script_path))?;
         Ok(())
     })();
@@ -57,13 +57,13 @@ pub fn uninstall_file_association() -> MainResult<()> {
         let mut notify = || ignored_missing = true;
 
         let hlcr = RegKey::predef(wre::HKEY_CLASSES_ROOT);
-        hlcr.delete_subkey(r#"RustScript.Ers\shell\open\command"#)
+        hlcr.delete_subkey(r#"RustScript.Rs\shell\open\command"#)
             .ignore_missing_and(&mut notify)?;
-        hlcr.delete_subkey(r#"RustScript.Ers\shell\open"#)
+        hlcr.delete_subkey(r#"RustScript.Rs\shell\open"#)
             .ignore_missing_and(&mut notify)?;
-        hlcr.delete_subkey(r#"RustScript.Ers\shell"#)
+        hlcr.delete_subkey(r#"RustScript.Rs\shell"#)
             .ignore_missing_and(&mut notify)?;
-        hlcr.delete_subkey(r#"RustScript.Ers"#)
+        hlcr.delete_subkey(r#"RustScript.Rs"#)
             .ignore_missing_and(&mut notify)?;
     }
 

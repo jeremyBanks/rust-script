@@ -1,12 +1,6 @@
-/*!
-Definition of the program's main error type.
-*/
+//! Definition of the program's main error type.
 
-use std::borrow::Cow;
-use std::error::Error;
-use std::fmt;
-use std::io;
-use std::result::Result;
+use std::{borrow::Cow, error::Error, fmt, io, result::Result};
 
 /// Shorthand for the program's common result type.
 pub type MainResult<T> = Result<T, MainError>;
@@ -23,8 +17,7 @@ pub enum MainError {
 
 impl fmt::Display for MainError {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        use self::MainError::*;
-        use std::fmt::Display;
+        use {self::MainError::*, std::fmt::Display};
         match *self {
             Io(ref err) => Display::fmt(err, fmt),
             Tag(ref msg, ref err) => write!(fmt, "{}: {}", msg, err),
