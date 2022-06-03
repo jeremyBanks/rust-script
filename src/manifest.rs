@@ -18,7 +18,6 @@ static RE_MARGIN: Lazy<Regex> = Lazy::new(|| Regex::new(r"^\s*\*( |$)").unwrap()
 static RE_SPACE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^(\s+)").unwrap());
 static RE_NESTING: Lazy<Regex> = Lazy::new(|| Regex::new(r"/\*|\*/").unwrap());
 static RE_COMMENT: Lazy<Regex> = Lazy::new(|| Regex::new(r"^\s*//(!|/)").unwrap());
-static RE_SHEBANG: Lazy<Regex> = Lazy::new(|| Regex::new(r"^#![^\[].*?(\r\n|\n)").unwrap());
 static RE_CRATE_COMMENT: Lazy<Regex> = Lazy::new(|| {
     Regex::new(
         r"(?x)
@@ -51,7 +50,12 @@ pub fn split_input(
     let (part_mani, source, template, sub_prelude) = match *input {
         Input::File(_, _, content, _) => {
             assert_eq!(prelude_items.len(), 0);
-            let content = strip_shebang(content);
+
+            let file: syn::File =
+                syn::parse_file(content).map_err(|err| format!("Failed to parse file: {err})"))?;
+
+            println!("{}", &format!("{:#?}", file)[..100]);
+
             let (manifest, source) =
                 find_embedded_manifest(content).unwrap_or((Manifest::Toml(""), content));
 
@@ -325,42 +329,6 @@ time = "0.1.25"
 fn main() {}
 "#
         )
-    );
-}
-
-/// Returns a slice of the input string with the leading shebang, if there is
-/// one, omitted.
-fn strip_shebang(s: &str) -> &str {
-    match RE_SHEBANG.find(s) {
-        Some(m) => &s[m.end()..],
-        None => s,
-    }
-}
-
-#[test]
-fn test_strip_shebang() {
-    assert_eq!(
-        strip_shebang(
-            "\
-#!/usr/bin/env rust-script
-and the rest
-"
-        ),
-        "\
-and the rest
-"
-    );
-    assert_eq!(
-        strip_shebang(
-            "\
-#![thingy]
-and the rest
-"
-        ),
-        "\
-#![thingy]
-and the rest
-"
     );
 }
 
