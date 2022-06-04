@@ -59,28 +59,42 @@ pub fn split_input(
             let file: syn::File =
                 syn::parse_file(content).map_err(|err| format!("Failed to parse file: {err})"))?;
 
-            println!(
-                "FILE ATTRS {:#?}",
-                file.attrs
-                    .iter()
-                    .map(|attr| format!("{:?} {}", attr.path.segments, attr.tokens.to_string()))
-                    .collect::<Vec<_>>()
-            );
+            let mut crate_doc = String::new();
 
-            // #[path]?
-
-            // collect all root identifiers anywhere in the file
-            {
-                impl<'ast> syn::visit::Visit<'ast> for Visitor {
-                    fn visit_path(&mut self, i: &'ast syn::Path) {
-                        println!("VISITING PATH: {:?}", i);
-                        syn::visit::visit_path(self, i);
+            for attr in file.attrs.iter() {
+                if attr.path.is_ident("docs") {
+                    if let Ok(syn::Meta::NameValue(meta)) = attr.parse_meta() {
+                        if let syn::Lit::Str(lit) = meta.lit {
+                            crate_doc.push_str(&lit.value());
+                            crate_doc.push('\n');
+                        }
                     }
                 }
-                struct Visitor;
-                &mut Visitor as &mut dyn syn::visit::Visit
             }
-            .visit_file(&file);
+
+            dbg!(crate_doc);
+
+            let root_crates = {
+                impl<'ast> syn::visit::Visit<'ast> for Visitor {
+                    fn visit_path(&mut self, path: &'ast syn::Path) {
+                        if path.leading_colon.is_some() {
+                            let root_crate = path.segments.first().unwrap().ident.to_string();
+                            self.root_crates.insert(root_crate.clone());
+                        }
+                        syn::visit::visit_path(self, path);
+                    }
+                }
+                #[derive(Default)]
+                struct Visitor {
+                    root_crates: std::collections::BTreeSet<String>,
+                }
+                let mut visitor = Visitor::default();
+                syn::visit::visit_file(&mut visitor, &file);
+
+                visitor.root_crates
+            };
+
+            println!("ROOT CRATES {:#?}", root_crates);
 
             let (manifest, source) =
                 find_embedded_manifest(content).unwrap_or((Manifest::Toml(""), content));

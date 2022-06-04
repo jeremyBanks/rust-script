@@ -3,11 +3,12 @@
 ## high noise low filter
 
 - [x] drop support for `.ers` extension; only support `.rs`
+- [x] rename the binary to `rust` (deviating from package name)
 - [ ] replace uses of `regex` with `syn`:
   - [ ] to identify the docstring with a possible manifest
   - [ ] to detect the `main` function, or detect top-level statements that
         aren't valid outside of a function, if there is no main.
-- [ ] remove template support, replacing current templates with uses of `quote!`
+- [ ] remove template feature, replacing current templates with uses of `quote!`
       and similar.
   - `--expr` will remain
   - `--loop`, and `--loop --count` will be considered
@@ -24,6 +25,7 @@
       `rust-toolchain.toml` instead of `Cargo.toml`
 - [ ] add a second binary named something more like `rust-eval`, which naively
       takes its command-line arguments, joins them with spaces, evaluates the
-      result, and prints it unless it's of the unit type.
+      result, and prints it unless it's of the unit type. or have some really
+      convenient shortcut, like `rust eval`
 - [ ] use git's hashing scheme for blobs/trees.
-- [ ] export to playground
+- [ ] export to playground, inlining external modules.
