@@ -61,21 +61,16 @@ pub fn split_input(
                 content = &content[content.find('\n').unwrap()..];
             }
 
-            dbg!(content);
-
+            // syn::parse_file would desync the span indices, so we need to strip the
+            // shebang ourselves.
             let file: syn::File =
-                syn::parse_file(content).map_err(|err| format!("Failed to parse file: {err})"))?;
+                syn::parse_str(content).map_err(|err| format!("Failed to parse file: {err})"))?;
 
             let mut crate_doc = String::new();
 
             let file_span = syn::spanned::Spanned::span(&file);
-            dbg!(file_span.lo(), file_span.hi());
 
             for attr in file.attrs.iter() {
-                let attr_span = syn::spanned::Spanned::span(attr);
-                dbg!(attr_span.lo(), attr_span.hi());
-                let source = &content[attr_span.lo() - 1..=attr_span.hi() - 1];
-                dbg!(source);
                 if attr.path.is_ident("docs") {
                     if let Ok(syn::Meta::NameValue(meta)) = attr.parse_meta() {
                         if let syn::Lit::Str(lit) = meta.lit {
@@ -84,6 +79,13 @@ pub fn split_input(
                         }
                     }
                 }
+            }
+
+            for item in &file.items {
+                dbg!(item);
+                let item_span = syn::spanned::Spanned::span(item);
+                let source = &content[item_span.lo() - 1..=item_span.hi() - 1];
+                dbg!(source);
             }
 
             let root_crates = {
