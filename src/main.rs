@@ -1,15 +1,15 @@
-#![forbid(unsafe_code)]
-
 /// If this is set to `false`, then code that automatically deletes stuff
 /// *won't*.
 const ALLOW_AUTO_REMOVE: bool = true;
 
+mod bad_ideas;
 mod consts;
 mod error;
 mod manifest;
 mod platform;
 mod templates;
 mod util;
+pub(crate) use bad_ideas::*;
 
 #[cfg(windows)]
 mod file_assoc;

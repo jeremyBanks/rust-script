@@ -5,7 +5,7 @@ use {
     crate::{
         consts,
         error::{MainError, MainResult},
-        templates, Input,
+        templates, Input, SpanExt,
     },
     std::{collections::HashMap, ffi::OsString, path::Path},
     tracing::warn,
@@ -54,15 +54,28 @@ pub fn split_input(
 
     let template_buf;
     let (part_mani, source, template, sub_prelude) = match *input {
-        Input::File(_, _, content, _) => {
+        Input::File(_, _, mut content, _) => {
             assert_eq!(prelude_items.len(), 0);
+
+            if content.lines().next().unwrap().starts_with("#!") {
+                content = &content[content.find('\n').unwrap()..];
+            }
+
+            dbg!(content);
 
             let file: syn::File =
                 syn::parse_file(content).map_err(|err| format!("Failed to parse file: {err})"))?;
 
             let mut crate_doc = String::new();
 
+            let file_span = syn::spanned::Spanned::span(&file);
+            dbg!(file_span.lo(), file_span.hi());
+
             for attr in file.attrs.iter() {
+                let attr_span = syn::spanned::Spanned::span(attr);
+                dbg!(attr_span.lo(), attr_span.hi());
+                let source = &content[attr_span.lo() - 1..=attr_span.hi() - 1];
+                dbg!(source);
                 if attr.path.is_ident("docs") {
                     if let Ok(syn::Meta::NameValue(meta)) = attr.parse_meta() {
                         if let syn::Lit::Str(lit) = meta.lit {
