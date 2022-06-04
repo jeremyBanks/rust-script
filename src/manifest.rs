@@ -8,6 +8,7 @@ use {
         templates, Input,
     },
     std::{collections::HashMap, ffi::OsString, path::Path},
+    tracing::warn,
     ::{
         once_cell::sync::Lazy,
         regex::Regex,
@@ -72,16 +73,49 @@ pub fn split_input(
                 }
             }
 
-            dbg!(crate_doc);
-
             let root_crates = {
                 impl<'ast> syn::visit::Visit<'ast> for Visitor {
                     fn visit_path(&mut self, path: &'ast syn::Path) {
+                        dbg!(&path);
                         if path.leading_colon.is_some() {
                             let root_crate = path.segments.first().unwrap().ident.to_string();
                             self.root_crates.insert(root_crate.clone());
                         }
                         syn::visit::visit_path(self, path);
+                    }
+
+                    fn visit_item_use(&mut self, item_use: &'ast syn::ItemUse) {
+                        dbg!(&item_use);
+
+                        // this doesn't cover `use {::std}`, which should be valid.
+
+                        if item_use.leading_colon.is_some() {
+                            match &item_use.tree {
+                                syn::UseTree::Path(syn::UsePath { ident, .. })
+                                | syn::UseTree::Name(syn::UseName { ident, .. })
+                                | syn::UseTree::Rename(syn::UseRename { ident, .. }) => {
+                                    self.root_crates.insert(ident.to_string());
+                                }
+                                syn::UseTree::Group(group) =>
+                                    for tree in group.items.iter() {
+                                        match tree {
+                                            syn::UseTree::Path(syn::UsePath { ident, .. })
+                                            | syn::UseTree::Name(syn::UseName { ident, .. })
+                                            | syn::UseTree::Rename(syn::UseRename {
+                                                ident, ..
+                                            }) => {
+                                                self.root_crates.insert(ident.to_string());
+                                            }
+                                            syn::UseTree::Glob(_) => todo!(),
+                                            syn::UseTree::Group(_) => todo!(),
+                                        }
+                                    },
+                                syn::UseTree::Glob(_) => {
+                                    warn!("This is weird and unexpected: {item_use:?}.");
+                                }
+                            }
+                        }
+                        syn::visit::visit_item_use(self, item_use);
                     }
                 }
                 #[derive(Default)]
@@ -94,12 +128,27 @@ pub fn split_input(
                 visitor.root_crates
             };
 
-            println!("ROOT CRATES {:#?}", root_crates);
+            let std_crates: std::collections::HashSet<String> =
+                ["core", "alloc", "std"].iter().map(|s| s.to_string()).collect();
 
-            let (manifest, source) =
-                find_embedded_manifest(content).unwrap_or((Manifest::Toml(""), content));
+            let mut inferred_dependencies = String::new();
+            for root_crate in root_crates {
+                if std_crates.contains(&root_crate) {
+                    continue;
+                }
 
-            println!("MANIFEST?! {:#?}", manifest);
+                if inferred_dependencies.is_empty() {
+                    inferred_dependencies.push_str("[dependencies]\n");
+                }
+                inferred_dependencies.push_str(&format!("{root_crate} = \"*\"\n"));
+            }
+
+            dbg!(&inferred_dependencies);
+
+            let (manifest, source) = find_embedded_manifest(content)
+                .unwrap_or((Manifest::TomlOwned(inferred_dependencies), content));
+
+            dbg!(&manifest);
 
             let source = if source.lines().any(contains_main_method) {
                 source.to_string()
