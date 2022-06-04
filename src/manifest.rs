@@ -76,7 +76,6 @@ pub fn split_input(
             let root_crates = {
                 impl<'ast> syn::visit::Visit<'ast> for Visitor {
                     fn visit_path(&mut self, path: &'ast syn::Path) {
-                        dbg!(&path);
                         if path.leading_colon.is_some() {
                             let root_crate = path.segments.first().unwrap().ident.to_string();
                             self.root_crates.insert(root_crate.clone());
@@ -86,8 +85,6 @@ pub fn split_input(
 
                     fn visit_item_use(&mut self, item_use: &'ast syn::ItemUse) {
                         dbg!(&item_use);
-
-                        // this doesn't cover `use {::std}`, which should be valid.
 
                         if item_use.leading_colon.is_some() {
                             match &item_use.tree {
@@ -113,6 +110,17 @@ pub fn split_input(
                                 syn::UseTree::Glob(_) => {
                                     warn!("This is weird and unexpected: {item_use:?}.");
                                 }
+                            }
+                        } else {
+                            match &item_use.tree {
+                                syn::UseTree::Group(group) => {
+                                    for tree in group.items.iter() {
+                                        // we need to support cases like
+                                        // use {{{::{{{{crossterm::style::
+                                        // {{{{Stylize}}}}}}}}}}};
+                                    }
+                                }
+                                _ => {}
                             }
                         }
                         syn::visit::visit_item_use(self, item_use);
@@ -246,8 +254,7 @@ path = "n.rs"
 [dependencies]
 
 [package]
-authors = ["Anonymous"]
-edition = "2018"
+edition = "2021"
 name = "n"
 version = "0.1.0""#,
                 STRIP_SECTION
@@ -272,8 +279,7 @@ path = "n.rs"
 [dependencies]
 
 [package]
-authors = ["Anonymous"]
-edition = "2018"
+edition = "2021"
 name = "n"
 version = "0.1.0""#,
                 STRIP_SECTION
@@ -301,8 +307,7 @@ path = "n.rs"
 [dependencies]
 
 [package]
-authors = ["Anonymous"]
-edition = "2018"
+edition = "2021"
 name = "n"
 version = "0.1.0""#,
                 STRIP_SECTION
@@ -331,8 +336,7 @@ path = "n.rs"
 time = "0.1.25"
 
 [package]
-authors = ["Anonymous"]
-edition = "2018"
+edition = "2021"
 name = "n"
 version = "0.1.0""#,
                 STRIP_SECTION
@@ -361,8 +365,7 @@ libc = "0.2.5"
 time = "0.1.25"
 
 [package]
-authors = ["Anonymous"]
-edition = "2018"
+edition = "2021"
 name = "n"
 version = "0.1.0""#,
                 STRIP_SECTION
@@ -397,8 +400,7 @@ path = "n.rs"
 time = "0.1.25"
 
 [package]
-authors = ["Anonymous"]
-edition = "2018"
+edition = "2021"
 name = "n"
 version = "0.1.0""#,
                 STRIP_SECTION

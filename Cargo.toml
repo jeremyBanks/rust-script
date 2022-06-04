@@ -28,6 +28,10 @@ tempfile = "3.3.0"
 toml = "0.5.9"
 tracing = "0.1.34"
 
+[dev-dependencies]
+crossterm = "*"
+scan-rules = "0.2.0"
+
 [[bin]]
 name = "rust"
 path = "src/main.rs"
@@ -37,9 +41,6 @@ winreg = "0.10.1"
 
 [target.'cfg(unix)'.dependencies]
 atty = "0.2.14"
-
-[dev-dependencies]
-scan-rules = "0.2.0"
 
 [profile.release]
 lto = "fat"

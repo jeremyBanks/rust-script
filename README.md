@@ -26,6 +26,8 @@
 - [ ] add a second binary named something more like `rust-eval`, which naively
       takes its command-line arguments, joins them with spaces, evaluates the
       result, and prints it unless it's of the unit type. or have some really
-      convenient shortcut, like `rust eval`
+      convenient shortcut, like `rust eval 2 + 2` or `rust -- 2 + 2`.
 - [ ] use git's hashing scheme for blobs/trees.
 - [ ] export to playground, inlining external modules.
+- [ ] detect if we're in a cargo project
+  - and...?
