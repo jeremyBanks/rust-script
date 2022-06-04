@@ -140,9 +140,8 @@ pub const MANI_FILE_SUB: &str = "file";
 pub const DEFAULT_MANIFEST: &str = r##"
 [package]
 name = "#{name}"
-version = "0.1.0"
-authors = ["Anonymous"]
-edition = "2018"
+version = "0.0.0"
+edition = "2021"
 
 [[bin]]
 name = "#{bin_name}"
