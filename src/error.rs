@@ -1,6 +1,10 @@
+#!/usr/bin/env rust
 //! Definition of the program's main error type.
 
-use std::{borrow::Cow, error::Error, fmt, io, result::Result};
+pub use {
+    once_cell::sync::Lazy,
+    std::{borrow::Cow, error::Error, fmt, io, result::Result},
+};
 
 /// Shorthand for the program's common result type.
 pub type MainResult<T> = Result<T, MainError>;

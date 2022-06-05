@@ -11,13 +11,29 @@ pub trait SpanExt: Borrow<Span> + BorrowMut<Span> {
 impl SpanExt for Span {
     fn lo(&self) -> usize {
         let span: Span = *self;
-        let (_discriminant, (lo, _hi)): (u32, (u32, u32)) = unsafe { std::mem::transmute(span) };
+        let (discriminant, (mut lo, mut hi)): (u32, (u32, u32)) =
+            unsafe { std::mem::transmute(span) };
+        if lo > hi {
+            // yikes
+            std::mem::swap(&mut lo, &mut hi);
+        }
+        if discriminant > 1 {
+            panic!("this was a bad idea");
+        }
         lo.try_into().unwrap()
     }
 
     fn hi(&self) -> usize {
         let span: Span = *self;
-        let (_discriminant, (_lo, hi)): (u32, (u32, u32)) = unsafe { std::mem::transmute(span) };
+        let (discriminant, (mut lo, mut hi)): (u32, (u32, u32)) =
+            unsafe { std::mem::transmute(span) };
+        if lo > hi {
+            // yikes
+            std::mem::swap(&mut lo, &mut hi);
+        }
+        if discriminant > 1 {
+            panic!("this was a bad idea");
+        }
         hi.try_into().unwrap()
     }
 }
