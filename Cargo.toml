@@ -25,12 +25,14 @@ dirs-next = "2"
 env_logger = "0.9"
 lazy_static = "1"
 log = "0.4"
+proc-macro2 = { version = "1.0.39", features = ["span-locations"] }
 pulldown-cmark = "0.9"
 regex = "1"
 rustversion = "1.0"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha-1 = "0.10"
+syn = { version = "1.0.96", features = ["full", "extra-traits", "visit"] }
 tempfile = "3"
 toml = "0.5"
 

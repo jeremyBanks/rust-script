@@ -664,30 +664,22 @@ fn find_short_comment_manifest(s: &str) -> Option<(Manifest, &str)> {
 Locates a "code block manifest" in Rust source.
 */
 fn find_code_block_manifest(s: &str) -> Option<(Manifest, &str)> {
-    /*
-    This has to happen in a few steps.
+    let file = syn::parse_file(s).ok()?;
 
-    First, we will look for and slice out a contiguous, inner doc comment which must be *the very first thing* in the file.  `#[doc(...)]` attributes *are not supported*.  Multiple single-line comments cannot have any blank lines between them.
+    let mut comment = String::new();
 
-    Then, we need to strip off the actual comment markers from the content.  Including indentation removal, and taking out the (optional) leading line markers for block comments.  *sigh*
-
-    Then, we need to take the contents of this doc comment and feed it to a Markdown parser.  We are looking for *the first* fenced code block with a language token of `cargo`.  This is extracted and pasted back together into the manifest.
-    */
-    let start = match RE_CRATE_COMMENT.captures(s) {
-        Some(cap) => match cap.get(1) {
-            Some(m) => m.start(),
-            None => return None,
-        },
-        None => return None,
-    };
-
-    let comment = match extract_comment(&s[start..]) {
-        Ok(s) => s,
-        Err(err) => {
-            error!("error slicing comment: {}", err);
-            return None;
+    for attr in file.attrs.iter() {
+        if attr.path.is_ident("doc") {
+            if let Ok(syn::Meta::NameValue(meta)) = attr.parse_meta() {
+                if let syn::Lit::Str(lit) = meta.lit {
+                    comment.push_str(&lit.value());
+                    comment.push('\n');
+                }
+            }
         }
-    };
+    }
+
+    eprintln!("{comment}");
 
     scrape_markdown_manifest(&comment).map(|m| (Manifest::TomlOwned(m), s))
 }
